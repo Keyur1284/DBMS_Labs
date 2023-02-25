@@ -1,16 +1,21 @@
 SET SEARCH_PATH TO sales;
+SELECT * FROM items;
+SELECT * FROM invoicedetails NATURAL JOIN invoice WHERE itemcode = 1103;
+SELECT * FROM invoice;
+SELECT * FROM customer;
+
 
 -- 1
-SELECT SUM (qty * rate) FROM invoicedetails WHERE itemcode = 1103;
+SELECT SUM (qty * rate) AS sales FROM invoicedetails WHERE itemcode = 1103;
 
 -- 2
-SELECT invdate, SUM (qty * rate) FROM invoicedetails NATURAL JOIN invoice
+SELECT invdate, SUM (qty * rate) AS sales FROM invoicedetails NATURAL JOIN invoice
 GROUP BY invdate;
 
 -- 3
-SELECT itemcode, SUM (qty) AS total FROM invoicedetails
+SELECT itemcode, SUM (qty) AS total_qty FROM invoicedetails
 GROUP BY itemcode
-ORDER BY total DESC
+ORDER BY total_qty DESC
 LIMIT 3;
 
 -- 4
@@ -36,27 +41,32 @@ NATURAL JOIN
 SELECT custid FROM customer JOIN invoice ON custid = customerid
 NATURAL JOIN
 (
-    SELECT invno, SUM (rate - averagepurchaseprice) AS total FROM invoicedetails 
+    SELECT invno, SUM (qty * (rate - averagepurchaseprice)) AS total FROM invoicedetails 
     JOIN items ON code = itemcode
     GROUP BY invno
     ORDER BY total DESC
     LIMIT 1
 ) AS temp;
 
-SELECT * FROM items;
-SELECT * FROM invoicedetails NATURAL JOIN invoice WHERE itemcode = 1103;
-SELECT * FROM invoice;
-SELECT * FROM customer;
-
 -- 7
-SELECT year, MAX(total) AS max_qty FROM
+SELECT tempL.year, itemcode, total AS max_qty FROM
 (
 	SELECT EXTRACT (YEAR FROM invdate) AS year, itemcode, SUM (qty) AS total
 	FROM invoicedetails NATURAL JOIN invoice
 	GROUP BY  year, itemcode
 	
-) AS temp GROUP BY year;
+) AS tempL
 
+JOIN
+(
+	SELECT year, MAX(total) AS max_qty FROM
+	(
+		SELECT EXTRACT (YEAR FROM invdate) AS year, itemcode, SUM (qty) AS total
+		FROM invoicedetails NATURAL JOIN invoice
+		GROUP BY  year, itemcode
+	) AS temp GROUP BY year
+)
+AS tempR ON tempL.total = tempR.max_qty AND tempL.year = tempR.year;
 
 SET SEARCH_PATH TO acad;
 
